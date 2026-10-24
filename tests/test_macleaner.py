@@ -123,16 +123,28 @@ class TestRemove(TempHome):
             m.clean_target(t, self.cfg, dry_run=True)
         self.assertTrue(f.exists())
 
-    def test_sudo_delete_blocked_by_macos_says_so(self):
+    def test_sudo_delete_explains_what_went_wrong(self):
         cache = self.home / ".cache/sys/dyld"
         cache.mkdir(parents=True)
         t = m.Target("sys", "sys", "g", m.SAFE, [cache], mode="remove", sudo=True)
-        blocked = subprocess.CompletedProcess([], 1, stderr="rm: dyld: Operation not permitted\n")
-        wrong_password = subprocess.CompletedProcess([], 1, stderr="sudo: 3 incorrect password attempts\n")
-        with mock.patch("builtins.print"), mock.patch.object(m.subprocess, "run", return_value=blocked):
-            self.assertIn("Full Disk Access", m.clean_target(t, self.cfg, dry_run=False))
-        with mock.patch("builtins.print"), mock.patch.object(m.subprocess, "run", return_value=wrong_password):
-            self.assertEqual(m.clean_target(t, self.cfg, dry_run=False), "couldn't get admin rights")
+        ok = subprocess.CompletedProcess([], 0)
+        failed = subprocess.CompletedProcess([], 1)
+        # rm's errors can bypass our pipe (sudo relays them to the terminal), so stderr may be empty.
+        blocked = subprocess.CompletedProcess([], 1, stderr="")
+        no_auth = subprocess.CompletedProcess([], 1, stderr="sudo: a password is required\n")
+
+        def clean(*results):
+            with mock.patch("builtins.print"), mock.patch.object(m.sys.stdin, "isatty", return_value=True), \
+                    mock.patch.object(m.subprocess, "run", side_effect=list(results)) as run:
+                return m.clean_target(t, self.cfg, dry_run=False), run
+
+        problem, run = clean(ok, blocked)
+        self.assertIn("standalone terminal", problem)
+        self.assertEqual(run.call_args_list[0].args[0], ["/usr/bin/sudo", "-v"])
+        self.assertEqual(run.call_args_list[1].args[0][:3], ["/usr/bin/sudo", "-n", "/bin/rm"])
+        self.assertIn("wrong password", clean(failed)[0])
+        self.assertEqual(clean(ok, no_auth)[0], "couldn't get admin rights")
+        self.assertIsNone(clean(ok, ok)[0])
 
     def test_an_unsafe_path_stops_the_whole_target(self):
         keep = touch(self.home / ".cache/ok/file")

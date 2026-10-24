@@ -868,15 +868,19 @@ def clean_target(t: Target, cfg, dry_run: bool, verbose: bool = False) -> str | 
         return None
     if t.sudo:
         print(dim(f"      macleaner needs your password to delete {tilde(t.paths[0].parent)}/…"))
-        sudo = ["/usr/bin/sudo"] if sys.stdin.isatty() else ["/usr/bin/sudo", "-n"]
-        # sudo prompts on the terminal itself, so capturing stderr only collects rm's complaints.
-        r = subprocess.run([*sudo, "/bin/rm", "-rf", "--", *map(str, victims)], stderr=subprocess.PIPE, text=True)
+        # Authenticate first, so a failed delete afterwards can't be mistaken for a wrong password.
+        # (rm's own errors may never reach us: sudo can relay them straight to the terminal.)
+        if sys.stdin.isatty() and subprocess.run(["/usr/bin/sudo", "-v"]).returncode != 0:
+            return "couldn't get admin rights (wrong password, or the prompt was cancelled)"
+        r = subprocess.run(["/usr/bin/sudo", "-n", "/bin/rm", "-rf", "--", *map(str, victims)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         if r.returncode == 0:
             return None
-        if "Operation not permitted" in r.stderr:
-            return ("macOS blocked the delete even with your password. Give your terminal app Full Disk Access "
-                    "(System Settings › Privacy & Security › Full Disk Access), reopen it, and run this again.")
-        return "couldn't get admin rights"
+        if r.stderr.startswith("sudo:"):
+            return "couldn't get admin rights"
+        return ("macOS blocked the delete even with admin rights. Run macleaner from a standalone terminal app "
+                "(Terminal, iTerm, Warp…), not one built into another app. If it still fails, give that app "
+                "Full Disk Access (System Settings › Privacy & Security › Full Disk Access) and reopen it.")
     failed = 0
     for v in victims:
         failed += remove_path(v, cfg)
