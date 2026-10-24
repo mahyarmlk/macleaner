@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/mahyarmlk/macleaner/actions/workflows/ci.yml/badge.svg)](https://github.com/mahyarmlk/macleaner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Written by Claude Opus 5.5](https://img.shields.io/badge/written%20by-Claude%20Opus%205.5-d97757.svg)](#how-this-was-made)
 
 **Get your disk space back on a developer's Mac, without guessing what's safe to delete.**
 
@@ -149,6 +150,10 @@ Before your first real clean, run `macleaner clean --safe --dry-run` to see exac
 ## Contributing
 
 Found a cache it should know about, or something that looked unsafe? See [CONTRIBUTING.md](CONTRIBUTING.md). Please report anything that could delete the wrong files privately, as described in [SECURITY.md](SECURITY.md).
+
+## How this was made
+
+macleaner was written by **Claude Opus 5.5**, Anthropic's AI model, working in [Claude Code](https://claude.com/claude-code). That covers the code, the tests, the CI setup and these docs. [@mahyarmlk](https://github.com/mahyarmlk) came up with the idea, ran it on a real, nearly full Mac, reported what broke, and decided what shipped.
 
 ## License
 
